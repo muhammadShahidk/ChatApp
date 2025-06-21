@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "06KsOAD24Dg=",
+  "success": true,
+  "projectFilePath": "D:\\Shahid\\Projects\\ChatApp\\ChatApp\\ChatApp\\ChatApp.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\muham\\.nuget\\packages\\microsoft.aspnetcore.openapi\\9.0.4\\microsoft.aspnetcore.openapi.9.0.4.nupkg.sha512",
+    "C:\\Users\\muham\\.nuget\\packages\\microsoft.openapi\\1.6.17\\microsoft.openapi.1.6.17.nupkg.sha512"
+  ],
+  "logs": []
+}

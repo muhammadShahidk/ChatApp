@@ -1,0 +1,7 @@
+D:\Shahid\Projects\ChatApp\ChatApp\ChatApp\obj\Debug\net9.0\ChatApp.csproj.AssemblyReference.cache
+D:\Shahid\Projects\ChatApp\ChatApp\ChatApp\obj\Debug\net9.0\ChatApp.GeneratedMSBuildEditorConfig.editorconfig
+D:\Shahid\Projects\ChatApp\ChatApp\ChatApp\obj\Debug\net9.0\ChatApp.AssemblyInfoInputs.cache
+D:\Shahid\Projects\ChatApp\ChatApp\ChatApp\obj\Debug\net9.0\ChatApp.AssemblyInfo.cs
+D:\Shahid\Projects\ChatApp\ChatApp\ChatApp\obj\Debug\net9.0\ChatApp.csproj.CoreCompileInputs.cache
+D:\Shahid\Projects\ChatApp\ChatApp\ChatApp\obj\Debug\net9.0\ChatApp.MvcApplicationPartsAssemblyInfo.cs
+D:\Shahid\Projects\ChatApp\ChatApp\ChatApp\obj\Debug\net9.0\ChatApp.MvcApplicationPartsAssemblyInfo.cache
