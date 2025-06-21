@@ -13,7 +13,8 @@ namespace ChatApp.Models
         Morning,   // 8 AM - 4 PM
         Evening,   // 4 PM - 12 AM
         Night      // 12 AM - 8 AM
-    }    public enum AgentWorkStatus
+    }
+    public enum AgentWorkStatus
     {
         Available,
         Busy,
@@ -45,8 +46,8 @@ namespace ChatApp.Models
         };
 
         public int MaxConcurrentChats => (int)(10 * EfficiencyMultiplier);
-          public bool CanTakeNewChat => Status == AgentWorkStatus.Available && 
-                                    CurrentChatCount < MaxConcurrentChats &&
-                                    Status != AgentWorkStatus.ShiftEnding;
+        public bool CanTakeNewChat => Status == AgentWorkStatus.Available &&
+                                  CurrentChatCount < MaxConcurrentChats &&
+                                  Status != AgentWorkStatus.ShiftEnding;
     }
 }

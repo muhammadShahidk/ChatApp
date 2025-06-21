@@ -147,7 +147,7 @@ namespace ChatApp.Services
             
             var activeTeams = _teamService.GetActiveTeams();
             var overflowTeam = _teamService.GetOverflowTeam();
-            var isOverflowActive = overflowTeam.Agents.Any(a => a.Status != Models.AgentStatus.Offline);
+            var isOverflowActive = overflowTeam.Agents.Any(a => a.Status != AgentWorkStatus.Offline);
 
             var allTeams = activeTeams.ToList();
             if (isOverflowActive)
@@ -211,11 +211,10 @@ namespace ChatApp.Services
         private void ActivateOverflowTeam()
         {
             var overflowTeam = _teamService.GetOverflowTeam();
-            foreach (var agent in overflowTeam.Agents)
-            {
-                if (agent.Status == Models.AgentStatus.Offline)
+            foreach (var agent in overflowTeam.Agents)            {
+                if (agent.Status == AgentWorkStatus.Offline)
                 {
-                    agent.Status = Models.AgentStatus.Available;
+                    agent.Status = AgentWorkStatus.Available;
                     agent.ShiftStartTime = DateTime.Now;
                     agent.ShiftEndTime = DateTime.Now.AddHours(8); // 8-hour shift
                 }
@@ -227,12 +226,11 @@ namespace ChatApp.Services
             return new TeamStatus
             {
                 TeamId = team.Id,
-                TeamName = team.Name,
-                AvailableAgents = team.Agents.Count(a => a.Status == Models.AgentStatus.Available),
+                TeamName = team.Name,                AvailableAgents = team.Agents.Count(a => a.Status == AgentWorkStatus.Available),
                 TotalAgents = team.Agents.Count,
                 TeamCapacity = team.TotalCapacity,
                 ActiveChats = team.Agents.Sum(a => a.CurrentChatCount),
-                IsActive = team.Shift == null || team.Agents.Any(a => a.Status != Models.AgentStatus.Offline),
+                IsActive = team.Shift == null || team.Agents.Any(a => a.Status != AgentWorkStatus.Offline),
                 AgentStatuses = team.Agents.Select(a => new Models.AgentStatus
                 {
                     AgentId = a.Id,
