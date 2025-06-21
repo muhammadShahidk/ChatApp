@@ -6,7 +6,8 @@ namespace ChatApp.Models
         public string Name { get; set; } = string.Empty;
         public List<Agent> Agents { get; set; } = new();
         public Shift? Shift { get; set; } // null for 24/7 teams
-        public bool IsOverflowTeam { get; set; }        public int TotalCapacity => Agents
+        public bool IsOverflowTeam { get; set; }
+        public int TotalCapacity => Agents
             .Where(a => a.Status != AgentWorkStatus.Offline)
             .Sum(a => a.MaxConcurrentChats);
 
