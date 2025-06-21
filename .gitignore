@@ -1,7 +1,69 @@
 ﻿################################################################################
+# .NET & ASP.NET Core defaults
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.vspscc
+*.vssscc
+*.dbmdl
+*.pdb
+*.cache
+*.log
+*.ncrunch*
+*.localhistory/
+*.DS_Store
+*.vscode/
+*.swp
+*.bak
+*.tmp
+*.ide/
+*.sln.ide/
+*.coverage
+*.coveragexml
+TestResults/
+build/
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# Azure
+*.azurepubxml
+*.publishsettings
+PublishProfiles/
+
+# User secrets
+secrets.json
+
+# IIS
+.vs/
+*.vspscc
+*.vssscc
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+*.sln.iml
+
+# Resharper
+*.DotSettings.user
+
+# Docker
+docker-compose.override.yml
+
+# npm
+node_modules/
+libman.json
+wwwroot/lib/
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
 /.vs/ChatApp/CopilotIndices/17.13.444.19527
 /.vs/ChatApp/FileContentIndex
 /.vs/ChatApp/v17
+/.vs/ChatApp/config
+/ChatApp/bin/Debug/net9.0
