@@ -42,7 +42,7 @@ namespace ChatApp.Services
                         Id = 1,
                         Name = "TeamLead A1",
                         Seniority = Seniority.TeamLead,
-                        Status = Models.AgentStatus.Available,
+                        Status = Models.AgentWorkStatus.Available,
                         TeamId = "TEAM_A",
                         CurrentShift = GetCurrentShift(),
                         ShiftStartTime = GetShiftStartTime(),
@@ -53,7 +53,7 @@ namespace ChatApp.Services
                         Id = 2,
                         Name = "MidLevel A1",
                         Seniority = Seniority.MidLevel,
-                        Status = Models.AgentStatus.Available,
+                        Status = Models.AgentWorkStatus.Available,
                         TeamId = "TEAM_A",
                         CurrentShift = GetCurrentShift(),
                         ShiftStartTime = GetShiftStartTime(),
@@ -64,7 +64,7 @@ namespace ChatApp.Services
                         Id = 3,
                         Name = "MidLevel A2",
                         Seniority = Seniority.MidLevel,
-                        Status = Models.AgentStatus.Available,
+                        Status = Models.AgentWorkStatus.Available,
                         TeamId = "TEAM_A",
                         CurrentShift = GetCurrentShift(),
                         ShiftStartTime = GetShiftStartTime(),
@@ -75,7 +75,7 @@ namespace ChatApp.Services
                         Id = 4,
                         Name = "Junior A1",
                         Seniority = Seniority.Junior,
-                        Status = Models.AgentStatus.Available,
+                        Status = Models.AgentWorkStatus.Available,
                         TeamId = "TEAM_A",
                         CurrentShift = GetCurrentShift(),
                         ShiftStartTime = GetShiftStartTime(),
@@ -97,7 +97,7 @@ namespace ChatApp.Services
                         Id = 5,
                         Name = "Senior B1",
                         Seniority = Seniority.Senior,
-                        Status = Models.AgentStatus.Available,
+                        Status = Models.AgentWorkStatus.Available,
                         TeamId = "TEAM_B",
                         CurrentShift = GetCurrentShift(),
                         ShiftStartTime = GetShiftStartTime(),
@@ -108,7 +108,7 @@ namespace ChatApp.Services
                         Id = 6,
                         Name = "MidLevel B1",
                         Seniority = Seniority.MidLevel,
-                        Status = Models.AgentStatus.Available,
+                        Status = Models.AgentWorkStatus.Available,
                         TeamId = "TEAM_B",
                         CurrentShift = GetCurrentShift(),
                         ShiftStartTime = GetShiftStartTime(),
@@ -119,7 +119,7 @@ namespace ChatApp.Services
                         Id = 7,
                         Name = "Junior B1",
                         Seniority = Seniority.Junior,
-                        Status = Models.AgentStatus.Available,
+                        Status = Models.AgentWorkStatus.Available,
                         TeamId = "TEAM_B",
                         CurrentShift = GetCurrentShift(),
                         ShiftStartTime = GetShiftStartTime(),
@@ -130,7 +130,7 @@ namespace ChatApp.Services
                         Id = 8,
                         Name = "Junior B2",
                         Seniority = Seniority.Junior,
-                        Status = Models.AgentStatus.Available,
+                        Status = Models.AgentWorkStatus.Available,
                         TeamId = "TEAM_B",
                         CurrentShift = GetCurrentShift(),
                         ShiftStartTime = GetShiftStartTime(),
@@ -152,7 +152,7 @@ namespace ChatApp.Services
                         Id = 9,
                         Name = "MidLevel C1",
                         Seniority = Seniority.MidLevel,
-                        Status = Models.AgentStatus.Available,
+                        Status = Models.AgentWorkStatus.Available,
                         TeamId = "TEAM_C",
                         CurrentShift = Shift.Night,
                         ShiftStartTime = GetShiftStartTime(Shift.Night),
@@ -163,7 +163,7 @@ namespace ChatApp.Services
                         Id = 10,
                         Name = "MidLevel C2",
                         Seniority = Seniority.MidLevel,
-                        Status = Models.AgentStatus.Available,
+                        Status = Models.AgentWorkStatus.Available,
                         TeamId = "TEAM_C",
                         CurrentShift = Shift.Night,
                         ShiftStartTime = GetShiftStartTime(Shift.Night),
@@ -189,7 +189,7 @@ namespace ChatApp.Services
                     Id = 100 + i,
                     Name = $"Overflow Agent {i}",
                     Seniority = Seniority.Junior, // All overflow are considered junior
-                    Status = Models.AgentStatus.Offline, // Start offline
+                    Status = Models.AgentWorkStatus.Offline, // Start offline
                     TeamId = "OVERFLOW",
                     IsOverflowTeam = true,
                     CurrentShift = GetCurrentShift(),
@@ -256,9 +256,9 @@ namespace ChatApp.Services
                     // Check if agent's shift is ending soon (30 minutes before end)
                     if (currentTime >= agent.ShiftEndTime.AddMinutes(-30))
                     {
-                        if (agent.Status == Models.AgentStatus.Available)
+                        if (agent.Status == Models.AgentWorkStatus.Available)
                         {
-                            agent.Status = Models.AgentStatus.ShiftEnding;
+                            agent.Status = Models.AgentWorkStatus.ShiftEnding;
                         }
                     }
                     // Check if agent's shift has ended
@@ -266,15 +266,15 @@ namespace ChatApp.Services
                     {
                         if (agent.CurrentChatCount == 0)
                         {
-                            agent.Status = Models.AgentStatus.Offline;
+                            agent.Status = Models.AgentWorkStatus.Offline;
                         }
                     }
                     // Check if agent should be available
                     else if (team.Shift == null || IsTeamShiftActive(team.Shift.Value, currentTime))
                     {
-                        if (agent.Status == Models.AgentStatus.Offline)
+                        if (agent.Status == Models.AgentWorkStatus.Offline)
                         {
-                            agent.Status = Models.AgentStatus.Available;
+                            agent.Status = Models.AgentWorkStatus.Available;
                         }
                     }
                 }
