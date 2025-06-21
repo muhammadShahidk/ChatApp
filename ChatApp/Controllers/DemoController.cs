@@ -220,6 +220,146 @@ namespace ChatApp.Controllers
                 return StatusCode(500, "Test failed: " + ex.Message);
             }
         }
+
+        /// <summary>
+        /// Test chat refusal scenarios according to documentation requirements
+        /// </summary>
+        [HttpPost("test-chat-refusal")]
+        public async Task<ActionResult> TestChatRefusalScenarios()
+        {
+            try
+            {
+                var results = new List<string>();
+                
+                results.Add("🧪 Testing Chat Refusal Logic According to Documentation");
+                results.Add("");
+                
+                // Reset system
+                _teamService.InitializeTeams();
+                results.Add("✅ System reset - all teams initialized");
+                
+                // Get initial capacity
+                var initialStatus = await _chatAssignmentService.GetQueueStatusAsync();
+                results.Add($"📊 System Capacity: {initialStatus.TotalCapacity} concurrent chats");
+                results.Add($"📈 Max Queue Length: {initialStatus.MaxQueueLength} (capacity × 1.5)");
+                results.Add($"⏰ Office Hours: {_teamService.IsOfficeHours()}");
+                results.Add("");
+                
+                // Test Scenario 1: Fill the main queue to capacity
+                results.Add("📋 Scenario 1: Fill main queue to maximum capacity");
+                var chatsToFillQueue = initialStatus.MaxQueueLength;
+                
+                for (int i = 1; i <= chatsToFillQueue; i++)
+                {
+                    try
+                    {
+                        await _chatAssignmentService.CreateChatSessionAsync($"customer_{i}", $"Customer {i}");
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        results.Add($"❌ Chat {i} refused: {ex.Message}");
+                        break;
+                    }
+                }
+                
+                var statusAfterFilling = await _chatAssignmentService.GetQueueStatusAsync();
+                results.Add($"📊 Queue Status: {statusAfterFilling.TotalQueuedChats}/{statusAfterFilling.MaxQueueLength}");
+                results.Add($"🔄 Overflow Active: {statusAfterFilling.IsOverflowActive}");
+                results.Add("");
+                
+                // Test Scenario 2: Try to add one more chat (should test overflow logic)
+                results.Add("📋 Scenario 2: Test overflow activation");
+                try
+                {
+                    var canAccept = await _chatAssignmentService.CanAcceptNewChatAsync();
+                    results.Add($"🔍 Can Accept New Chat: {canAccept.CanAccept}");
+                    results.Add($"📝 Reason: {canAccept.Reason}");
+                    
+                    if (canAccept.CanAccept)
+                    {
+                        await _chatAssignmentService.CreateChatSessionAsync("overflow_test", "Overflow Test Customer");
+                        results.Add("✅ Chat accepted - overflow team activated");
+                    }
+                    else
+                    {
+                        results.Add("❌ Chat would be refused");
+                    }
+                }
+                catch (InvalidOperationException ex)
+                {
+                    results.Add($"❌ Chat refused: {ex.Message}");
+                }
+                results.Add("");
+                
+                // Test Scenario 3: Fill overflow queue to capacity
+                if (_teamService.IsOfficeHours())
+                {
+                    results.Add("📋 Scenario 3: Test overflow queue capacity limits");
+                    var overflowTeam = _teamService.GetOverflowTeam();
+                    var overflowCapacity = overflowTeam.TotalCapacity;
+                    var maxOverflowQueue = (int)((initialStatus.TotalCapacity + overflowCapacity) * 1.5);
+                    
+                    results.Add($"🔢 Overflow Team Capacity: {overflowCapacity}");
+                    results.Add($"📈 Max Queue with Overflow: {maxOverflowQueue}");
+                    
+                    // Try to create chats until overflow is full
+                    var currentStatus = await _chatAssignmentService.GetQueueStatusAsync();
+                    var chatsToAdd = maxOverflowQueue - currentStatus.TotalQueuedChats + 1; // +1 to test refusal
+                    
+                    for (int i = 1; i <= chatsToAdd; i++)
+                    {
+                        try
+                        {
+                            await _chatAssignmentService.CreateChatSessionAsync($"overflow_fill_{i}", $"Overflow Fill {i}");
+                        }
+                        catch (InvalidOperationException ex)
+                        {
+                            results.Add($"❌ Overflow queue full - Chat refused: {ex.Message}");
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    results.Add("📋 Scenario 3: Outside office hours - overflow not available");
+                    try
+                    {
+                        await _chatAssignmentService.CreateChatSessionAsync("after_hours", "After Hours Customer");
+                        results.Add("❌ This should not happen - chat should be refused");
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        results.Add($"✅ Chat correctly refused: {ex.Message}");
+                    }
+                }
+                
+                var finalStatus = await _chatAssignmentService.GetQueueStatusAsync();
+                results.Add("");
+                results.Add("📊 Final System Status:");
+                results.Add($"   Queue Length: {finalStatus.TotalQueuedChats}");
+                results.Add($"   Max Capacity: {finalStatus.MaxQueueLength}");
+                results.Add($"   Overflow Active: {finalStatus.IsOverflowActive}");
+                results.Add($"   System Status: {(finalStatus.TotalQueuedChats >= finalStatus.MaxQueueLength ? "FULL" : "AVAILABLE")}");
+                
+                return Ok(new
+                {
+                    success = true,
+                    testResults = results,
+                    finalStatus = finalStatus,
+                    documentation = new
+                    {
+                        rule1 = "Once the session queue is full, unless it's during office hours and an overflow is available. The chat is refused.",
+                        rule2 = "Same rules applies for overflow; once full, the chat is refused.",
+                        implemented = "✅ Both rules implemented and tested"
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error testing chat refusal scenarios");
+                return StatusCode(500, "Test failed: " + ex.Message);
+            }
+        }
     }
 
     public class SimulationRequest

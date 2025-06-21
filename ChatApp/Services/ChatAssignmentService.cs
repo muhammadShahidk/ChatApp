@@ -11,6 +11,7 @@ namespace ChatApp.Services
         Task<List<ChatSession>> GetQueuedChatsAsync();
         Task<List<ChatSession>> GetAgentChatsAsync(int agentId);
         Task ProcessQueueAsync();
+        Task<ChatAcceptanceResult> CanAcceptNewChatAsync();
     }
 
     public class ChatAssignmentService : IChatAssignmentService
@@ -26,9 +27,15 @@ namespace ChatApp.Services
             _chatSessions = new List<ChatSession>();
             _chatQueue = new Queue<ChatSession>();
         }
-
         public async Task<ChatSession> CreateChatSessionAsync(string customerId, string customerName)
         {
+            // First, check if we can accept new chats based on queue capacity rules
+            var canAcceptChat = await CanAcceptNewChatAsync();
+            if (!canAcceptChat.CanAccept)
+            {
+                throw new InvalidOperationException($"Chat refused: {canAcceptChat.Reason}");
+            }
+
             var chatSession = new ChatSession
             {
                 Id = _nextChatId++,
@@ -77,7 +84,7 @@ namespace ChatApp.Services
             if (availableAgents.Any())
             {
                 var assignedAgent = availableAgents.First();
-                
+
                 // Assign chat to agent
                 chat.AssignedAgentId = assignedAgent.Id;
                 chat.AssignedAgent = assignedAgent;
@@ -87,7 +94,7 @@ namespace ChatApp.Services
 
                 // Update agent's chat count and assigned chats
                 assignedAgent.CurrentChatCount++;
-                assignedAgent.AssignedChatIds.Add(chat.Id);                if (assignedAgent.CurrentChatCount >= assignedAgent.MaxConcurrentChats)
+                assignedAgent.AssignedChatIds.Add(chat.Id); if (assignedAgent.CurrentChatCount >= assignedAgent.MaxConcurrentChats)
                 {
                     assignedAgent.Status = AgentWorkStatus.Busy;
                 }
@@ -121,14 +128,14 @@ namespace ChatApp.Services
             {
                 chat.AssignedAgent.CurrentChatCount--;
                 chat.AssignedAgent.AssignedChatIds.Remove(chat.Id);                // If agent was busy and now has capacity, make them available (unless shift is ending)
-                if (chat.AssignedAgent.Status == AgentWorkStatus.Busy && 
+                if (chat.AssignedAgent.Status == AgentWorkStatus.Busy &&
                     chat.AssignedAgent.Status != AgentWorkStatus.ShiftEnding)
                 {
                     chat.AssignedAgent.Status = AgentWorkStatus.Available;
                 }
 
                 // If agent's shift ended and they have no more chats, make them offline
-                if (chat.AssignedAgent.Status == AgentWorkStatus.ShiftEnding && 
+                if (chat.AssignedAgent.Status == AgentWorkStatus.ShiftEnding &&
                     chat.AssignedAgent.CurrentChatCount == 0)
                 {
                     chat.AssignedAgent.Status = AgentWorkStatus.Offline;
@@ -144,7 +151,7 @@ namespace ChatApp.Services
         public async Task<ChatQueueStatus> GetQueueStatusAsync()
         {
             _teamService.UpdateAgentShiftStatus();
-            
+
             var activeTeams = _teamService.GetActiveTeams();
             var overflowTeam = _teamService.GetOverflowTeam();
             var isOverflowActive = overflowTeam.Agents.Any(a => a.Status != AgentWorkStatus.Offline);
@@ -187,6 +194,103 @@ namespace ChatApp.Services
             }
         }
 
+        /// <summary>
+        /// Determines if a new chat can be accepted based on queue capacity rules
+        /// Implementation of: "Once the session queue is full, unless it's during office hours and an overflow is available. The chat is refused."
+        /// </summary>
+        public async Task<ChatAcceptanceResult> CanAcceptNewChatAsync()
+        {
+            _teamService.UpdateAgentShiftStatus();
+
+            var activeTeams = _teamService.GetActiveTeams();
+            var totalCapacity = GetTotalCapacity(activeTeams);
+            var currentQueueLength = _chatQueue.Count;
+            var maxQueueLength = (int)(totalCapacity * 1.5);
+            var isOfficeHours = _teamService.IsOfficeHours();
+
+            // Rule 1: If queue is not full, accept the chat
+            if (currentQueueLength < maxQueueLength)
+            {
+                return new ChatAcceptanceResult
+                {
+                    CanAccept = true,
+                    Reason = "Queue has available capacity",
+                    CurrentQueueLength = currentQueueLength,
+                    MaxQueueLength = maxQueueLength
+                };
+            }
+
+            // Rule 2: Queue is full - check if overflow is available during office hours
+            if (isOfficeHours)
+            {
+                var overflowTeam = _teamService.GetOverflowTeam();
+                var isOverflowActive = overflowTeam.Agents.Any(a => a.Status != AgentWorkStatus.Offline);
+
+                if (!isOverflowActive)
+                {
+                    // Overflow team not active, try to activate it
+                    ActivateOverflowTeam();
+                    isOverflowActive = overflowTeam.Agents.Any(a => a.Status != AgentWorkStatus.Offline);
+                }
+
+                if (isOverflowActive)
+                {
+                    // Calculate overflow capacity
+                    var overflowCapacity = overflowTeam.TotalCapacity;
+                    var totalCapacityWithOverflow = totalCapacity + overflowCapacity;
+                    var maxQueueWithOverflow = (int)(totalCapacityWithOverflow * 1.5);
+
+                    // Rule 3: Check if overflow queue is full
+                    if (currentQueueLength < maxQueueWithOverflow)
+                    {
+                        return new ChatAcceptanceResult
+                        {
+                            CanAccept = true,
+                            Reason = "Overflow team activated - queue has capacity",
+                            CurrentQueueLength = currentQueueLength,
+                            MaxQueueLength = maxQueueWithOverflow,
+                            IsOverflowActive = true
+                        };
+                    }
+                    else
+                    {
+                        // Rule 4: "Same rules applies for overflow; once full, the chat is refused."
+                        return new ChatAcceptanceResult
+                        {
+                            CanAccept = false,
+                            Reason = "Both main queue and overflow queue are at maximum capacity",
+                            CurrentQueueLength = currentQueueLength,
+                            MaxQueueLength = maxQueueWithOverflow,
+                            IsOverflowActive = true
+                        };
+                    }
+                }
+                else
+                {
+                    return new ChatAcceptanceResult
+                    {
+                        CanAccept = false,
+                        Reason = "Main queue is full and overflow team could not be activated during office hours",
+                        CurrentQueueLength = currentQueueLength,
+                        MaxQueueLength = maxQueueLength,
+                        IsOverflowActive = false
+                    };
+                }
+            }
+            else
+            {
+                // Rule 5: Not office hours and queue is full - refuse chat
+                return new ChatAcceptanceResult
+                {
+                    CanAccept = false,
+                    Reason = "Main queue is full and overflow team is not available outside office hours",
+                    CurrentQueueLength = currentQueueLength,
+                    MaxQueueLength = maxQueueLength,
+                    IsOverflowActive = false
+                };
+            }
+        }
+
         private List<Agent> GetAvailableAgentsRoundRobin(IEnumerable<Team> teams)
         {
             var allAvailableAgents = new List<Agent>();
@@ -211,7 +315,8 @@ namespace ChatApp.Services
         private void ActivateOverflowTeam()
         {
             var overflowTeam = _teamService.GetOverflowTeam();
-            foreach (var agent in overflowTeam.Agents)            {
+            foreach (var agent in overflowTeam.Agents)
+            {
                 if (agent.Status == AgentWorkStatus.Offline)
                 {
                     agent.Status = AgentWorkStatus.Available;
@@ -226,7 +331,8 @@ namespace ChatApp.Services
             return new TeamStatus
             {
                 TeamId = team.Id,
-                TeamName = team.Name,                AvailableAgents = team.Agents.Count(a => a.Status == AgentWorkStatus.Available),
+                TeamName = team.Name,
+                AvailableAgents = team.Agents.Count(a => a.Status == AgentWorkStatus.Available),
                 TotalAgents = team.Agents.Count,
                 TeamCapacity = team.TotalCapacity,
                 ActiveChats = team.Agents.Sum(a => a.CurrentChatCount),

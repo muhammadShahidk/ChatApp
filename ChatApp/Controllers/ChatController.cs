@@ -15,10 +15,9 @@ namespace ChatApp.Controllers
         {
             _chatAssignmentService = chatAssignmentService;
             _logger = logger;
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// Create a new chat session and add it to the queue
+        /// Implements chat refusal logic according to documentation requirements
         /// </summary>
         [HttpPost("create")]
         public async Task<ActionResult<ChatSession>> CreateChatSession([FromBody] CreateChatRequest request)
@@ -27,12 +26,46 @@ namespace ChatApp.Controllers
             {
                 _logger.LogInformation("Creating new chat session for customer: {CustomerId}", request.CustomerId);
                 
+                // First check if we can accept the chat
+                var acceptanceResult = await _chatAssignmentService.CanAcceptNewChatAsync();
+                
+                if (!acceptanceResult.CanAccept)
+                {
+                    _logger.LogWarning("Chat refused for customer {CustomerId}: {Reason}", 
+                        request.CustomerId, acceptanceResult.Reason);
+                    
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Chat request refused",
+                        reason = acceptanceResult.Reason,
+                        queueStatus = new
+                        {
+                            currentQueueLength = acceptanceResult.CurrentQueueLength,
+                            maxQueueLength = acceptanceResult.MaxQueueLength,
+                            isOverflowActive = acceptanceResult.IsOverflowActive
+                        }
+                    });
+                }
+                
                 var chatSession = await _chatAssignmentService.CreateChatSessionAsync(
                     request.CustomerId, 
                     request.CustomerName
                 );
 
-                return Ok(chatSession);
+                _logger.LogInformation("Chat session created successfully: {ChatId}", chatSession.Id);
+                
+                return Ok(new
+                {
+                    success = true,
+                    chat = chatSession,
+                    acceptanceInfo = acceptanceResult
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Chat refused: {Message}", ex.Message);
+                return BadRequest(new { success = false, message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -136,6 +169,25 @@ namespace ChatApp.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing queue");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Check if a new chat can be accepted without actually creating it
+        /// Useful for frontend to show queue status before chat creation
+        /// </summary>
+        [HttpGet("can-accept")]
+        public async Task<ActionResult<ChatAcceptanceResult>> CanAcceptNewChat()
+        {
+            try
+            {
+                var result = await _chatAssignmentService.CanAcceptNewChatAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking chat acceptance");
                 return StatusCode(500, "Internal server error");
             }
         }

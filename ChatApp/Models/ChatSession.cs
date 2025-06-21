@@ -33,4 +33,13 @@ namespace ChatApp.Models
         public DateTime Timestamp { get; set; }
         public bool IsFromAgent { get; set; }
     }
+
+    public class ChatAcceptanceResult
+    {
+        public bool CanAccept { get; set; }
+        public string Reason { get; set; } = string.Empty;
+        public int CurrentQueueLength { get; set; }
+        public int MaxQueueLength { get; set; }
+        public bool IsOverflowActive { get; set; }
+    }
 }
