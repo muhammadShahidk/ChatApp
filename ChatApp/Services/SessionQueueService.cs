@@ -3,17 +3,18 @@ using ChatApp.Models;
 
 namespace ChatApp.Services
 {
-
     public class SessionQueueService : ISessionQueueService
     {
         private readonly ITeamService _teamService;
+        private readonly ISessionMonitorService _sessionMonitorService;
         private readonly List<ChatSession> _chatSessions;
         private readonly Queue<ChatSession> _sessionsQueue;
         private int _nextChatId = 1;
 
-        public SessionQueueService(ITeamService teamService)
+        public SessionQueueService(ITeamService teamService, ISessionMonitorService sessionMonitorService)
         {
             _teamService = teamService;
+            _sessionMonitorService = sessionMonitorService;
             _chatSessions = new List<ChatSession>();
             _sessionsQueue = new Queue<ChatSession>();
         }
@@ -25,7 +26,6 @@ namespace ChatApp.Services
             {
                 throw new InvalidOperationException($"Chat refused: {canAcceptChat.Reason}");
             }
-
             var chatSession = new ChatSession
             {
                 Id = _nextChatId++,
@@ -38,14 +38,17 @@ namespace ChatApp.Services
             _chatSessions.Add(chatSession);
             _sessionsQueue.Enqueue(chatSession);
 
+            // Register the session for monitoring
+            await _sessionMonitorService.RegisterSessionAsync(chatSession);
+
             // Try to assign immediately
             //await AssignChatToAgentAsync(chatSession.Id);
 
             return chatSession;
         }
 
-       
-       
+
+
 
         public async Task<ChatQueueStatus> GetQueueStatusAsync()
         {
@@ -71,15 +74,15 @@ namespace ChatApp.Services
                 LastUpdated = DateTime.Now
             };
         }
-
         public async Task<List<ChatSession>> GetQueuedChatsAsync()
         {
-            return _sessionsQueue.ToList();
+            // Only return active sessions in the queue
+            return _sessionsQueue.Where(s => s.IsActive && s.Status == ChatStatus.Queued).ToList();
         }
 
-       
 
-       
+
+
 
         /// <summary>
         /// Determines if a new chat can be accepted based on queue capacity rules
@@ -90,10 +93,10 @@ namespace ChatApp.Services
             _teamService.UpdateAgentShiftStatus();
 
             var activeTeams = _teamService.GetActiveTeams();
-            //var totalCapacity = GetTotalCapacity(activeTeams);
+            var totalCapacity = GetTotalCapacity(activeTeams);
             var currentQueueLength = _sessionsQueue.Count;
-            //var maxQueueLength = (int)(totalCapacity * 1.5); //remove 1.5 multiplier
-            var maxQueueLength =GetMaxCapacity(activeTeams); //remove 1.5 multiplier
+            var maxQueueLength = (int)(totalCapacity * 1.5); //remove 1.5 multiplier
+            //var maxQueueLength =GetMaxCapacity(activeTeams); //remove 1.5 multiplier
             var isOfficeHours = _teamService.IsOfficeHours();
 
             // Rule 1: If queue is not full, accept the chat
@@ -124,9 +127,9 @@ namespace ChatApp.Services
                 if (isOverflowActive)
                 {
                     // Calculate overflow capacity
-                    var overflowCapacity = overflowTeam.MaxQueueLength;
-                    var maxQueueWithOverflow = maxQueueLength + overflowCapacity;
-                    //var maxQueueWithOverflow = (int)(totalCapacityWithOverflow * 1.5); 
+                    var overflowCapacity = overflowTeam.TotalCapacity;
+                    var totalCapacityWithOverflow = totalCapacity + overflowCapacity;
+                    var maxQueueWithOverflow = (int)(totalCapacityWithOverflow * 1.5);
                     if (currentQueueLength < maxQueueWithOverflow)
                     {
                         return new ChatAcceptanceResult

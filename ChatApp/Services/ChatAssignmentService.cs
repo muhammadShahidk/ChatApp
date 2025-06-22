@@ -7,42 +7,17 @@ namespace ChatApp.Services
     public class ChatAssignmentService : IChatAssignmentService
     {
         private readonly ITeamService _teamService;
-        private readonly List<ChatSession> _chatSessions;
-        private readonly Queue<ChatSession> _chatQueue;
+        private readonly ISessionQueueService sessionQueueService;
+
         private int _nextChatId = 1;
 
-        public ChatAssignmentService(ITeamService teamService)
+        public ChatAssignmentService(ITeamService teamService, ISessionQueueService sessionQueueService)
         {
             _teamService = teamService;
-            _chatSessions = new List<ChatSession>();
-            _chatQueue = new Queue<ChatSession>();
+            this.sessionQueueService = sessionQueueService;
+        
         }
-        public async Task<ChatSession> CreateChatSessionAsync(string customerId, string customerName)
-        {
-            // First, check if we can accept new chats based on queue capacity rules
-            var canAcceptChat = await CanAcceptNewChatAsync();
-            if (!canAcceptChat.CanAccept)
-            {
-                throw new InvalidOperationException($"Chat refused: {canAcceptChat.Reason}");
-            }
-
-            var chatSession = new ChatSession
-            {
-                Id = _nextChatId++,
-                CustomerId = customerId,
-                CustomerName = customerName,
-                Status = ChatStatus.Queued,
-                CreatedAt = DateTime.Now
-            };
-
-            _chatSessions.Add(chatSession);
-            _chatQueue.Enqueue(chatSession);
-
-            // Try to assign immediately
-            await AssignChatToAgentAsync(chatSession.Id);
-
-            return chatSession;
-        }
+       
 
         public async Task<bool> AssignChatToAgentAsync(int chatId)
         {
@@ -170,15 +145,19 @@ namespace ChatApp.Services
 
         public async Task<List<ChatSession>> GetAgentChatsAsync(int agentId)
         {
-            return _chatSessions
-                .Where(c => c.AssignedAgentId == agentId && c.Status == ChatStatus.InProgress)
+
+            var chate = await sessionQueueService.GetQueuedChatsAsync();
+                chate.Where(c => c.AssignedAgentId == agentId && c.Status == ChatStatus.InProgress)
                 .ToList();
+            return chate;
         }
 
         public async Task ProcessQueueAsync()
         {
-            var queuedChats = _chatQueue.ToList();
-            foreach (var chat in queuedChats)
+            var fullqueue = await sessionQueueService.GetQueuedChatsAsync();
+            if( fullqueue != null )
+
+            foreach (var chat in fullqueue)
             {
                 await AssignChatToAgentAsync(chat.Id);
             }

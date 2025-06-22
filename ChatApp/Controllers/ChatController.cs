@@ -79,28 +79,7 @@ namespace ChatApp.Controllers
         /// <summary>
         /// Complete a chat session
         /// </summary>
-        [HttpPost("{chatId}/complete")]
-        public async Task<ActionResult> CompleteChatSession(int chatId)
-        {
-            try
-            {
-                _logger.LogInformation("Completing chat session: {ChatId}", chatId);
-                
-                var result = await _chatAssignmentService.CompleteChatAsync(chatId);
-                
-                if (result)
-                {
-                    return Ok(new { message = "Chat completed successfully" });
-                }
-                
-                return NotFound(new { message = "Chat not found or not in progress" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error completing chat session {ChatId}", chatId);
-                return StatusCode(500, "Internal server error");
-            }
-        }
+       
 
         /// <summary>
         /// Get current queue status and team information
@@ -110,7 +89,7 @@ namespace ChatApp.Controllers
         {
             try
             {
-                var status = await _chatAssignmentService.GetQueueStatusAsync();
+                var status = await s.GetQueueStatusAsync();
                 return Ok(status);
             }
             catch (Exception ex)
@@ -128,7 +107,7 @@ namespace ChatApp.Controllers
         {
             try
             {
-                var queuedChats = await _chatAssignmentService.GetQueuedChatsAsync();
+                var queuedChats = await _sessionQueueService.GetQueuedChatsAsync();
                 return Ok(queuedChats);
             }
             catch (Exception ex)
@@ -184,7 +163,7 @@ namespace ChatApp.Controllers
         {
             try
             {
-                var result = await _chatAssignmentService.CanAcceptNewChatAsync();
+                var result = await _sessionQueueService.CanAcceptNewChatAsync();
                 return Ok(result);
             }
             catch (Exception ex)

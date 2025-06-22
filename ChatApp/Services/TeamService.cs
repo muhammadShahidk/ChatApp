@@ -286,9 +286,13 @@ namespace ChatApp.Services
             var currentTime = DateTime.Now;
             var hour = currentTime.Hour;
             // Office hours: 8 AM to 6 PM Monday to Friday
-            return currentTime.DayOfWeek >= DayOfWeek.Monday &&
-                   currentTime.DayOfWeek <= DayOfWeek.Friday &&
-                   hour >= 8 && hour < 18;
+          
+            // Office hours: 8 AM to 6 PM every day (Monday through Sunday)
+            return hour >= 8 && hour < 18;
+
+            //return currentTime.DayOfWeek >= DayOfWeek.Monday &&
+            //       currentTime.DayOfWeek <= DayOfWeek.Friday &&
+            //       hour >= 8 && hour < 18;
         }
 
         private Shift GetCurrentShift()
