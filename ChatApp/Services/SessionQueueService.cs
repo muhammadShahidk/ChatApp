@@ -77,7 +77,60 @@ namespace ChatApp.Services
         public async Task<List<ChatSession>> GetQueuedChatsAsync()
         {
             // Only return active sessions in the queue
-            return _sessionsQueue.Where(s => s.IsActive && s.Status == ChatStatus.Queued).ToList();
+            //return _sessionsQueue.Where(s => s.IsActive && s.Status == ChatStatus.Queued).ToList();
+            return _sessionsQueue.Where(s => s.Status ==  ChatStatus.Queued).ToList();
+        }
+
+        public async Task<List<ChatSession>> GetAllChatsAsync()
+        {
+            return await Task.FromResult(_chatSessions.ToList());
+        }
+
+        public async Task<bool> AssignChatToAgentAsync(int chatId, int agentId)
+        {
+            var chat = _chatSessions.FirstOrDefault(c => c.Id == chatId);
+            if (chat == null || chat.Status != ChatStatus.Queued || !chat.IsActive)
+                return false;
+
+            // Find the agent from team service
+            var allTeams = _teamService.GetActiveTeams().Concat(new[] { _teamService.GetOverflowTeam() });
+            var agent = allTeams.SelectMany(t => t.Agents).FirstOrDefault(a => a.Id == agentId);
+            
+            if (agent == null)
+                return false;
+
+            // Assign chat to agent
+            chat.AssignedAgentId = agentId;
+            chat.AssignedAgent = agent;
+            chat.Status = ChatStatus.InProgress;
+            chat.AssignedAt = DateTime.Now;
+            chat.TeamId = agent.TeamId;
+
+            // Remove from queue
+            var queueItems = _sessionsQueue.ToList();
+            _sessionsQueue.Clear();
+            foreach (var item in queueItems.Where(i => i.Id != chatId))
+            {
+                _sessionsQueue.Enqueue(item);
+            }
+
+            return await Task.FromResult(true);
+        }
+
+        public async Task<bool> CompleteChatAsync(int chatId)
+        {
+            var chat = _chatSessions.FirstOrDefault(c => c.Id == chatId);
+            if (chat == null || chat.Status != ChatStatus.InProgress)
+                return false;
+
+            // Update chat status
+            chat.Status = ChatStatus.Completed;
+            chat.CompletedAt = DateTime.Now;
+
+            // Unregister from monitoring service
+            await _sessionMonitorService.UnregisterSessionAsync(chatId);
+
+            return await Task.FromResult(true);
         }
 
 

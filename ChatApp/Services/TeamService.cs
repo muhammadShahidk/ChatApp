@@ -269,14 +269,7 @@ namespace ChatApp.Services
                             agent.Status = Models.AgentWorkStatus.Offline;
                         }
                     }
-                    // Check if agent should be available
-                    else if (team.Shift == null || IsTeamShiftActive(team.Shift.Value, currentTime))
-                    {
-                        if (agent.Status == Models.AgentWorkStatus.Offline)
-                        {
-                            agent.Status = Models.AgentWorkStatus.Available;
-                        }
-                    }
+                   
                 }
             }
         }

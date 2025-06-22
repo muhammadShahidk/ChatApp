@@ -89,7 +89,7 @@ namespace ChatApp.Controllers
         {
             try
             {
-                var status = await s.GetQueueStatusAsync();
+                var status = await _sessionQueueService.GetQueueStatusAsync();
                 return Ok(status);
             }
             catch (Exception ex)
