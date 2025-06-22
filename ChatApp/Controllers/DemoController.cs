@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ChatApp.Services;
 using ChatApp.Models;
+using ChatApp.Interfaces;
 
 namespace ChatApp.Controllers
 {
@@ -9,17 +10,20 @@ namespace ChatApp.Controllers
     public class DemoController : ControllerBase
     {
         private readonly IChatAssignmentService _chatAssignmentService;
+        private readonly ISessionQueueService _sessionQueueService;
         private readonly ITeamService _teamService;
         private readonly ILogger<DemoController> _logger;
 
         public DemoController(
             IChatAssignmentService chatAssignmentService,
             ITeamService teamService,
-            ILogger<DemoController> logger)
+            ILogger<DemoController> logger,
+            ISessionQueueService sessionQueueService)
         {
             _chatAssignmentService = chatAssignmentService;
             _teamService = teamService;
             _logger = logger;
+            _sessionQueueService = sessionQueueService;
         }
 
         /// <summary>
@@ -39,7 +43,7 @@ namespace ChatApp.Controllers
                 results.Add($"✅ Teams initialized successfully");
 
                 // Get initial status
-                var initialStatus = await _chatAssignmentService.GetQueueStatusAsync();
+                var initialStatus = await _sessionQueueService.GetQueueStatusAsync();
                 results.Add($"📊 Initial Capacity: {initialStatus.TotalCapacity} concurrent chats");
                 results.Add($"📈 Max Queue Length: {initialStatus.MaxQueueLength}");
 

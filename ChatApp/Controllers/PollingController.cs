@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using ChatApp.Models;
 using ChatApp.Services;
 using System.Diagnostics;
+using ChatApp.Interfaces;
 
 namespace ChatApp.Controllers
 {
@@ -10,17 +11,20 @@ namespace ChatApp.Controllers
     public class PollingController : ControllerBase
     {
         private readonly IChatAssignmentService _chatAssignmentService;
+        private readonly ISessionQueueService _sessionQueueService;
         private readonly ITeamService _teamService;
         private readonly ILogger<PollingController> _logger;
 
         public PollingController(
             IChatAssignmentService chatAssignmentService,
             ITeamService teamService,
-            ILogger<PollingController> logger)
+            ILogger<PollingController> logger,
+            ISessionQueueService sessionQueueService)
         {
             _chatAssignmentService = chatAssignmentService;
             _teamService = teamService;
             _logger = logger;
+            _sessionQueueService = sessionQueueService;
         }
 
         /// <summary>
@@ -32,14 +36,14 @@ namespace ChatApp.Controllers
         {
             try
             {
-                var queuedChats = await _chatAssignmentService.GetQueuedChatsAsync();
+                var queuedChats = await _sessionQueueService.GetQueuedChatsAsync();
                 var queuePosition = queuedChats.FindIndex(c => c.Id == chatId) + 1;
                 
                 // Find the chat in all sessions
                 var allChats = new List<ChatSession>();
                 // Note: In real implementation, you'd have a method to get all chat sessions
                 
-                var status = await _chatAssignmentService.GetQueueStatusAsync();
+                var status = await _sessionQueueService.GetQueueStatusAsync();
                 var estimatedWaitTime = CalculateEstimatedWaitTime(queuePosition, status.TotalCapacity);
 
                 return Ok(new ChatStatusResponse

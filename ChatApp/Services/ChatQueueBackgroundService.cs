@@ -1,4 +1,4 @@
-using ChatApp.Services;
+using ChatApp.Interfaces;
 
 namespace ChatApp.Services
 {

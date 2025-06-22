@@ -1,3 +1,4 @@
+using ChatApp.Interfaces;
 using ChatApp.Services;
 using Scalar.AspNetCore;
 
@@ -9,6 +10,7 @@ builder.Services.AddControllers();
 // Register our custom services
 builder.Services.AddSingleton<ITeamService, TeamService>();
 builder.Services.AddSingleton<IChatAssignmentService, ChatAssignmentService>();
+builder.Services.AddSingleton<ISessionQueueService, SessionQueueService>();
 
 // Add background service for queue processing
 builder.Services.AddHostedService<ChatQueueBackgroundService>();
