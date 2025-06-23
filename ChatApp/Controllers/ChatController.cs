@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ChatApp.Models;
-using ChatApp.Services;
+using ChatApp.Interfaces;
 
 namespace ChatApp.Controllers
 {
@@ -9,16 +9,18 @@ namespace ChatApp.Controllers
     public class ChatController : ControllerBase
     {
         private readonly IChatAssignmentService _chatAssignmentService;
+        private readonly ISessionQueueService _sessionQueueService;
         private readonly ILogger<ChatController> _logger;
 
-        public ChatController(IChatAssignmentService chatAssignmentService, ILogger<ChatController> logger)
+        public ChatController(IChatAssignmentService chatAssignmentService, ILogger<ChatController> logger, ISessionQueueService sessionQueueService)
         {
             _chatAssignmentService = chatAssignmentService;
             _logger = logger;
+            _sessionQueueService = sessionQueueService;
         }        /// <summary>
-        /// Create a new chat session and add it to the queue
-        /// Implements chat refusal logic according to documentation requirements
-        /// </summary>
+                 /// Create a new chat session and add it to the queue
+                 /// Implements chat refusal logic according to documentation requirements
+                 /// </summary>
         [HttpPost("create")]
         public async Task<ActionResult<ChatSession>> CreateChatSession([FromBody] CreateChatRequest request)
         {
@@ -27,7 +29,7 @@ namespace ChatApp.Controllers
                 _logger.LogInformation("Creating new chat session for customer: {CustomerId}", request.CustomerId);
                 
                 // First check if we can accept the chat
-                var acceptanceResult = await _chatAssignmentService.CanAcceptNewChatAsync();
+                var acceptanceResult = await _sessionQueueService.CanAcceptNewChatAsync();
                 
                 if (!acceptanceResult.CanAccept)
                 {
@@ -48,7 +50,7 @@ namespace ChatApp.Controllers
                     });
                 }
                 
-                var chatSession = await _chatAssignmentService.CreateChatSessionAsync(
+                var chatSession = await _sessionQueueService.CreateChatSessionAsync(
                     request.CustomerId, 
                     request.CustomerName
                 );
@@ -77,28 +79,7 @@ namespace ChatApp.Controllers
         /// <summary>
         /// Complete a chat session
         /// </summary>
-        [HttpPost("{chatId}/complete")]
-        public async Task<ActionResult> CompleteChatSession(int chatId)
-        {
-            try
-            {
-                _logger.LogInformation("Completing chat session: {ChatId}", chatId);
-                
-                var result = await _chatAssignmentService.CompleteChatAsync(chatId);
-                
-                if (result)
-                {
-                    return Ok(new { message = "Chat completed successfully" });
-                }
-                
-                return NotFound(new { message = "Chat not found or not in progress" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error completing chat session {ChatId}", chatId);
-                return StatusCode(500, "Internal server error");
-            }
-        }
+       
 
         /// <summary>
         /// Get current queue status and team information
@@ -108,7 +89,7 @@ namespace ChatApp.Controllers
         {
             try
             {
-                var status = await _chatAssignmentService.GetQueueStatusAsync();
+                var status = await _sessionQueueService.GetQueueStatusAsync();
                 return Ok(status);
             }
             catch (Exception ex)
@@ -126,7 +107,7 @@ namespace ChatApp.Controllers
         {
             try
             {
-                var queuedChats = await _chatAssignmentService.GetQueuedChatsAsync();
+                var queuedChats = await _sessionQueueService.GetQueuedChatsAsync();
                 return Ok(queuedChats);
             }
             catch (Exception ex)
@@ -182,7 +163,7 @@ namespace ChatApp.Controllers
         {
             try
             {
-                var result = await _chatAssignmentService.CanAcceptNewChatAsync();
+                var result = await _sessionQueueService.CanAcceptNewChatAsync();
                 return Ok(result);
             }
             catch (Exception ex)

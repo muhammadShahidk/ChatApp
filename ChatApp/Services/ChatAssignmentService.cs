@@ -1,63 +1,26 @@
+using ChatApp.Interfaces;
 using ChatApp.Models;
 
 namespace ChatApp.Services
 {
-    public interface IChatAssignmentService
-    {
-        Task<ChatSession> CreateChatSessionAsync(string customerId, string customerName);
-        Task<bool> AssignChatToAgentAsync(int chatId);
-        Task<bool> CompleteChatAsync(int chatId);
-        Task<ChatQueueStatus> GetQueueStatusAsync();
-        Task<List<ChatSession>> GetQueuedChatsAsync();
-        Task<List<ChatSession>> GetAgentChatsAsync(int agentId);
-        Task ProcessQueueAsync();
-        Task<ChatAcceptanceResult> CanAcceptNewChatAsync();
-    }
 
     public class ChatAssignmentService : IChatAssignmentService
     {
         private readonly ITeamService _teamService;
-        private readonly List<ChatSession> _chatSessions;
-        private readonly Queue<ChatSession> _chatQueue;
-        private int _nextChatId = 1;
+        private readonly ISessionQueueService _sessionQueueService;
 
-        public ChatAssignmentService(ITeamService teamService)
+        public ChatAssignmentService(ITeamService teamService, ISessionQueueService sessionQueueService)
         {
             _teamService = teamService;
-            _chatSessions = new List<ChatSession>();
-            _chatQueue = new Queue<ChatSession>();
+            _sessionQueueService = sessionQueueService;
         }
-        public async Task<ChatSession> CreateChatSessionAsync(string customerId, string customerName)
-        {
-            // First, check if we can accept new chats based on queue capacity rules
-            var canAcceptChat = await CanAcceptNewChatAsync();
-            if (!canAcceptChat.CanAccept)
-            {
-                throw new InvalidOperationException($"Chat refused: {canAcceptChat.Reason}");
-            }
-
-            var chatSession = new ChatSession
-            {
-                Id = _nextChatId++,
-                CustomerId = customerId,
-                CustomerName = customerName,
-                Status = ChatStatus.Queued,
-                CreatedAt = DateTime.Now
-            };
-
-            _chatSessions.Add(chatSession);
-            _chatQueue.Enqueue(chatSession);
-
-            // Try to assign immediately
-            await AssignChatToAgentAsync(chatSession.Id);
-
-            return chatSession;
-        }
-
         public async Task<bool> AssignChatToAgentAsync(int chatId)
         {
-            var chat = _chatSessions.FirstOrDefault(c => c.Id == chatId);
-            if (chat == null || chat.Status != ChatStatus.Queued)
+            // Get chat from session queue service instead of local collection
+            var queuedChats = await _sessionQueueService.GetQueuedChatsAsync();
+            var chat = queuedChats.FirstOrDefault(c => c.Id == chatId);
+
+            if (chat == null || chat.Status != ChatStatus.Queued || !chat.IsActive)
                 return false;
 
             // Update agent shift statuses first
@@ -71,7 +34,8 @@ namespace ChatApp.Services
             {
                 // Check if we need to activate overflow team
                 var totalCapacity = GetTotalCapacity(activeTeams);
-                var queueLength = _chatQueue.Count;
+                var queueStatus = await _sessionQueueService.GetQueueStatusAsync();
+                var queueLength = queueStatus.TotalQueuedChats;
                 var maxQueueLength = (int)(totalCapacity * 1.5);
 
                 if (queueLength >= maxQueueLength && _teamService.IsOfficeHours())
@@ -85,126 +49,113 @@ namespace ChatApp.Services
             {
                 var assignedAgent = availableAgents.First();
 
-                // Assign chat to agent
-                chat.AssignedAgentId = assignedAgent.Id;
-                chat.AssignedAgent = assignedAgent;
-                chat.Status = ChatStatus.InProgress;
-                chat.AssignedAt = DateTime.Now;
-                chat.TeamId = assignedAgent.TeamId;
+                // Assign chat to agent via session queue service
+                var assignmentResult = await _sessionQueueService.AssignChatToAgentAsync(chatId, assignedAgent.Id);
 
-                // Update agent's chat count and assigned chats
-                assignedAgent.CurrentChatCount++;
-                assignedAgent.AssignedChatIds.Add(chat.Id); if (assignedAgent.CurrentChatCount >= assignedAgent.MaxConcurrentChats)
+                if (assignmentResult)
                 {
-                    assignedAgent.Status = AgentWorkStatus.Busy;
+                    // Update agent's chat count and assigned chats
+                    assignedAgent.CurrentChatCount++;
+                    assignedAgent.AssignedChatIds.Add(chat.Id);
+
+                    if (assignedAgent.CurrentChatCount >= assignedAgent.MaxConcurrentChats)
+                    {
+                        assignedAgent.Status = AgentWorkStatus.Busy;
+                    }
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        public async Task<bool> CompleteChatAsync(int chatId)
+        {
+            // Get chat from session queue service
+            var allChats = await _sessionQueueService.GetAllChatsAsync();
+            var chat = allChats.FirstOrDefault(c => c.Id == chatId && c.Status == ChatStatus.InProgress);
+
+            if (chat == null)
+                return false;
+
+            // Complete chat via session queue service
+            var completionResult = await _sessionQueueService.CompleteChatAsync(chatId);
+
+            if (completionResult)
+            {
+                // Update agent availability
+                if (chat.AssignedAgent != null)
+                {
+                    chat.AssignedAgent.CurrentChatCount--;
+                    chat.AssignedAgent.AssignedChatIds.Remove(chat.Id);
+
+                    // If agent was busy and now has capacity, make them available (unless shift is ending)
+                    if (chat.AssignedAgent.Status == AgentWorkStatus.Busy &&
+                        chat.AssignedAgent.Status != AgentWorkStatus.ShiftEnding)
+                    {
+                        chat.AssignedAgent.Status = AgentWorkStatus.Available;
+                    }
+
+                    // If agent's shift ended and they have no more chats, make them offline
+                    if (chat.AssignedAgent.Status == AgentWorkStatus.ShiftEnding &&
+                        chat.AssignedAgent.CurrentChatCount == 0)
+                    {
+                        chat.AssignedAgent.Status = AgentWorkStatus.Offline;
+                    }
                 }
 
-                // Remove from queue
-                var queueItems = _chatQueue.ToList();
-                _chatQueue.Clear();
-                foreach (var item in queueItems.Where(i => i.Id != chatId))
-                {
-                    _chatQueue.Enqueue(item);
-                }
-
+                // Try to assign queued chats
+                await ProcessQueueAsync();
                 return true;
             }
 
             return false;
         }
-
-        public async Task<bool> CompleteChatAsync(int chatId)
-        {
-            var chat = _chatSessions.FirstOrDefault(c => c.Id == chatId);
-            if (chat == null || chat.Status != ChatStatus.InProgress)
-                return false;
-
-            // Update chat status
-            chat.Status = ChatStatus.Completed;
-            chat.CompletedAt = DateTime.Now;
-
-            // Update agent availability
-            if (chat.AssignedAgent != null)
-            {
-                chat.AssignedAgent.CurrentChatCount--;
-                chat.AssignedAgent.AssignedChatIds.Remove(chat.Id);                // If agent was busy and now has capacity, make them available (unless shift is ending)
-                if (chat.AssignedAgent.Status == AgentWorkStatus.Busy &&
-                    chat.AssignedAgent.Status != AgentWorkStatus.ShiftEnding)
-                {
-                    chat.AssignedAgent.Status = AgentWorkStatus.Available;
-                }
-
-                // If agent's shift ended and they have no more chats, make them offline
-                if (chat.AssignedAgent.Status == AgentWorkStatus.ShiftEnding &&
-                    chat.AssignedAgent.CurrentChatCount == 0)
-                {
-                    chat.AssignedAgent.Status = AgentWorkStatus.Offline;
-                }
-            }
-
-            // Try to assign queued chats
-            await ProcessQueueAsync();
-
-            return true;
-        }
-
         public async Task<ChatQueueStatus> GetQueueStatusAsync()
         {
-            _teamService.UpdateAgentShiftStatus();
-
-            var activeTeams = _teamService.GetActiveTeams();
-            var overflowTeam = _teamService.GetOverflowTeam();
-            var isOverflowActive = overflowTeam.Agents.Any(a => a.Status != AgentWorkStatus.Offline);
-
-            var allTeams = activeTeams.ToList();
-            if (isOverflowActive)
-                allTeams.Add(overflowTeam);
-
-            var totalCapacity = GetTotalCapacity(allTeams);
-
-            return new ChatQueueStatus
-            {
-                TotalQueuedChats = _chatQueue.Count,
-                TotalCapacity = totalCapacity,
-                MaxQueueLength = (int)(totalCapacity * 1.5),
-                IsOverflowActive = isOverflowActive,
-                TeamStatuses = allTeams.Select(MapTeamToStatus).ToList(),
-                LastUpdated = DateTime.Now
-            };
+            // Delegate to session queue service
+            return await _sessionQueueService.GetQueueStatusAsync();
         }
-
         public async Task<List<ChatSession>> GetQueuedChatsAsync()
         {
-            return _chatQueue.ToList();
+            // Delegate to session queue service
+            return await _sessionQueueService.GetQueuedChatsAsync();
         }
-
         public async Task<List<ChatSession>> GetAgentChatsAsync(int agentId)
         {
-            return _chatSessions
-                .Where(c => c.AssignedAgentId == agentId && c.Status == ChatStatus.InProgress)
-                .ToList();
+            var allChats = await _sessionQueueService.GetAllChatsAsync();
+            return allChats.Where(c => c.AssignedAgentId == agentId && c.Status == ChatStatus.InProgress)
+                          .ToList();
         }
-
         public async Task ProcessQueueAsync()
         {
-            var queuedChats = _chatQueue.ToList();
-            foreach (var chat in queuedChats)
+            // Get only active sessions from queue for assignment
+            var queuedChats = await _sessionQueueService.GetQueuedChatsAsync();
+
+            // Only process active sessions that are still queued
+            var activeQueuedChats = queuedChats
+                .Where(c => c.IsActive && c.Status == ChatStatus.Queued)
+                .OrderBy(c => c.CreatedAt) // FIFO order
+                .ToList();
+
+            foreach (var chat in activeQueuedChats)
             {
                 await AssignChatToAgentAsync(chat.Id);
             }
-        }
-
-        /// <summary>
-        /// Determines if a new chat can be accepted based on queue capacity rules
-        /// Implementation of: "Once the session queue is full, unless it's during office hours and an overflow is available. The chat is refused."
-        /// </summary>
+        }        /// <summary>
+                 /// Determines if a new chat can be accepted based on queue capacity rules
+                 /// Implementation of: "Once the session queue is full, unless it's during office hours and an overflow is available. The chat is refused."
+                 /// </summary>
         public async Task<ChatAcceptanceResult> CanAcceptNewChatAsync()
         {
             _teamService.UpdateAgentShiftStatus();
 
             var activeTeams = _teamService.GetActiveTeams();
             var totalCapacity = GetTotalCapacity(activeTeams);
-            var currentQueueLength = _chatQueue.Count;
+
+            // Get current queue status from session queue service
+            var queueStatus = await _sessionQueueService.GetQueueStatusAsync();
+            var currentQueueLength = queueStatus.TotalQueuedChats;
             var maxQueueLength = (int)(totalCapacity * 1.5);
             var isOfficeHours = _teamService.IsOfficeHours();
 
@@ -240,7 +191,6 @@ namespace ChatApp.Services
                     var totalCapacityWithOverflow = totalCapacity + overflowCapacity;
                     var maxQueueWithOverflow = (int)(totalCapacityWithOverflow * 1.5);
 
-                    // Rule 3: Check if overflow queue is full
                     if (currentQueueLength < maxQueueWithOverflow)
                     {
                         return new ChatAcceptanceResult
@@ -312,7 +262,7 @@ namespace ChatApp.Services
             return teams.Sum(t => t.TotalCapacity);
         }
 
-        private void ActivateOverflowTeam()
+        private void ActivateOverflowTeam()  //kyia new kik off team ki shift time whan sy start ho gi jahan sy unhon ny join kyia 
         {
             var overflowTeam = _teamService.GetOverflowTeam();
             foreach (var agent in overflowTeam.Agents)
@@ -337,7 +287,7 @@ namespace ChatApp.Services
                 TeamCapacity = team.TotalCapacity,
                 ActiveChats = team.Agents.Sum(a => a.CurrentChatCount),
                 IsActive = team.Shift == null || team.Agents.Any(a => a.Status != AgentWorkStatus.Offline),
-                AgentStatuses = team.Agents.Select(a => new Models.AgentStatus
+                AgentStatuses = team.Agents.Select(a => new AgentStatus
                 {
                     AgentId = a.Id,
                     AgentName = a.Name,
