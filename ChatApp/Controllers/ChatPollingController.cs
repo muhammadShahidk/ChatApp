@@ -1,4 +1,5 @@
 using ChatApp.Interfaces;
+using ChatApp.Models;
 using ChatApp.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,20 +11,14 @@ namespace ChatApp.Controllers
     {
         private readonly ISessionMonitorService _sessionMonitorService;
         private readonly ISessionQueueService _sessionQueueService;
-        private readonly ILogger<ChatPollingController> _logger;
 
         public ChatPollingController(
             ISessionMonitorService sessionMonitorService,
-            ISessionQueueService sessionQueueService,
-            ILogger<ChatPollingController> logger)
+            ISessionQueueService sessionQueueService)
         {
             _sessionMonitorService = sessionMonitorService;
             _sessionQueueService = sessionQueueService;
-            _logger = logger;
-        }        /// <summary>
-                 /// Customer polling endpoint - called every 1 second after chat is created
-                 /// Implements: "Once the chat window receives OK as a response it will start polling every 1s"
-                 /// </summary>
+        }
         [HttpPost("poll/{chatId}")]
         public async Task<IActionResult> PollChatStatus(int chatId, [FromBody] PollRequest? request = null)
         {
@@ -103,14 +98,10 @@ namespace ChatApp.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error handling poll for chat {ChatId}", chatId);
                 return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
-        /// <summary>
-        /// Get session activity statistics for monitoring dashboard
-        /// </summary>
         [HttpGet("monitoring/stats")]
         public async Task<IActionResult> GetMonitoringStats()
         {
@@ -133,14 +124,10 @@ namespace ChatApp.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting monitoring stats");
                 return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
-        /// <summary>
-        /// Manually trigger session activity check (for testing)
-        /// </summary>
         [HttpPost("monitoring/check")]
         public async Task<IActionResult> TriggerActivityCheck()
         {
@@ -160,28 +147,10 @@ namespace ChatApp.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error triggering activity check");
                 return StatusCode(500, new { message = "Internal server error" });
             }
         }
     }
-
-    public class PollRequest
-    {
-        public string CustomerId { get; set; } = string.Empty;
-        public string ClientInfo { get; set; } = string.Empty;
-    }
 }
 
 
-
-public class PoolResponse
-{
-    public string Status { get; set; }
-    public string Message { get; set; }
-    public int? Position { get; set; }
-    public DateTime? EstimatedWaitTime { get; set; }
-    public int? AgentId { get; set; }
-    public string? AgentName { get; set; }
-    public int ChatId { get; set; }
-}

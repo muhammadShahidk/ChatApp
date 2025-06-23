@@ -29,12 +29,11 @@ namespace ChatApp.Services
         {
             _teams.Clear();
             
-            // Team A: 1x team lead, 2x mid-level, 1x junior
             var teamA = new Team
             {
                 Id = "TEAM_A",
                 Name = "Team A",
-                Shift = null, // 24/7 team
+                Shift = null,
                 Agents = new List<Agent>
                 {
                     new Agent
@@ -84,12 +83,11 @@ namespace ChatApp.Services
                 }
             };
 
-            // Team B: 1x senior, 1x mid-level, 2x junior
             var teamB = new Team
             {
                 Id = "TEAM_B",
                 Name = "Team B",
-                Shift = null, // 24/7 team
+                Shift = null,
                 Agents = new List<Agent>
                 {
                     new Agent
@@ -139,7 +137,6 @@ namespace ChatApp.Services
                 }
             };
 
-            // Team C: 2x mid-level (night shift team)
             var teamC = new Team
             {
                 Id = "TEAM_C",
@@ -188,8 +185,8 @@ namespace ChatApp.Services
                 {
                     Id = 100 + i,
                     Name = $"Overflow Agent {i}",
-                    Seniority = Seniority.Junior, // All overflow are considered junior
-                    Status = Models.AgentWorkStatus.Offline, // Start offline
+                    Seniority = Seniority.Junior,
+                    Status = Models.AgentWorkStatus.Offline,
                     TeamId = "OVERFLOW",
                     IsOverflowTeam = true,
                     CurrentShift = GetCurrentShift(),
@@ -227,7 +224,7 @@ namespace ChatApp.Services
 
             foreach (var team in _teams)
             {
-                if (team.Shift == null) // 24/7 teams
+                if (team.Shift == null)
                 {
                     activeTeams.Add(team);
                 }
@@ -253,7 +250,6 @@ namespace ChatApp.Services
             {
                 foreach (var agent in team.Agents)
                 {
-                    // Check if agent's shift is ending soon (30 minutes before end)
                     if (currentTime >= agent.ShiftEndTime.AddMinutes(-30))
                     {
                         if (agent.Status == Models.AgentWorkStatus.Available)
@@ -261,7 +257,6 @@ namespace ChatApp.Services
                             agent.Status = Models.AgentWorkStatus.ShiftEnding;
                         }
                     }
-                    // Check if agent's shift has ended
                     else if (currentTime >= agent.ShiftEndTime)
                     {
                         if (agent.CurrentChatCount == 0)
@@ -278,14 +273,11 @@ namespace ChatApp.Services
         {
             var currentTime = DateTime.Now;
             var hour = currentTime.Hour;
-            // Office hours: 8 AM to 6 PM Monday to Friday
-          
-            // Office hours: 8 AM to 6 PM every day (Monday through Sunday)
-            return hour >= 8 && hour < 18;
+            //return hour >= 8 && hour < 18;
 
-            //return currentTime.DayOfWeek >= DayOfWeek.Monday &&
-            //       currentTime.DayOfWeek <= DayOfWeek.Friday &&
-            //       hour >= 8 && hour < 18;
+            return currentTime.DayOfWeek >= DayOfWeek.Monday &&
+                   currentTime.DayOfWeek <= DayOfWeek.Friday &&
+                   hour >= 8 && hour < 18;
         }
 
         private Shift GetCurrentShift()

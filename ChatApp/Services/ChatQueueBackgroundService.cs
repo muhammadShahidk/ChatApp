@@ -14,10 +14,9 @@ namespace ChatApp.Services
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
-        }        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        }        
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Chat Queue Background Service started");
-
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
@@ -28,10 +27,8 @@ namespace ChatApp.Services
                         var teamService = scope.ServiceProvider.GetRequiredService<ITeamService>();
                         var sessionMonitorService = scope.ServiceProvider.GetRequiredService<ISessionMonitorService>();
 
-                        // 1. Update agent shift statuses
                         teamService.UpdateAgentShiftStatus();
 
-                        // 2. Check session activity and mark inactive sessions
                         var monitoringResult = await sessionMonitorService.CheckSessionActivityAsync();
                         
                         if (monitoringResult.NewlyInactiveSessions.Any())
@@ -40,11 +37,8 @@ namespace ChatApp.Services
                                 monitoringResult.NewlyInactiveSessions.Count);
                         }
 
-                        // 3. Process the queue (only active sessions will be assigned)
                         await chatAssignmentService.ProcessQueueAsync();
                         
-                        _logger.LogDebug("Queue processing cycle completed. Active: {Active}, Inactive: {Inactive}", 
-                            monitoringResult.ActiveSessions, monitoringResult.InactiveSessions);
                     }
                 }
                 catch (Exception ex)

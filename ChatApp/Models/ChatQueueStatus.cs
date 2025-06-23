@@ -20,7 +20,8 @@ namespace ChatApp.Models
         public int ActiveChats { get; set; }
         public List<AgentStatus> AgentStatuses { get; set; } = new();
         public bool IsActive { get; set; }
-    }    public class AgentStatus
+    }    
+    public class AgentStatus
     {
         public int AgentId { get; set; }
         public string AgentName { get; set; } = string.Empty;

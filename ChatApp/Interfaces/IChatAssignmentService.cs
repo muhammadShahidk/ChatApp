@@ -6,8 +6,6 @@ namespace ChatApp.Interfaces
     {
         
         Task<bool> AssignChatToAgentAsync(int chatId);
-        
- 
         Task<List<ChatSession>> GetAgentChatsAsync(int agentId);
         Task ProcessQueueAsync();
  

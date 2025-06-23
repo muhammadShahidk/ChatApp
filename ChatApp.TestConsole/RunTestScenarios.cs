@@ -363,17 +363,16 @@ namespace ChatApp.TestConsole
 
         async Task TestSessionMonitoring()
         {
-            Console.WriteLine("✅ Testing Session Monitoring and Poll Tracking...");
+            Console.WriteLine("Testing Session Monitoring and Poll Tracking...");
             Console.WriteLine(new string('=', 60));
 
             try
             {
-                // Create some test sessions
                 var session1 = await sessionQueueService.CreateChatSessionAsync("customer_001", "Test Customer 1");
                 var session2 = await sessionQueueService.CreateChatSessionAsync("customer_002", "Test Customer 2");
                 var session3 = await sessionQueueService.CreateChatSessionAsync("customer_003", "Test Customer 3");
 
-                Console.WriteLine($"\n📋 Created {3} test sessions for monitoring");
+                Console.WriteLine($"\n Created {3} test sessions for monitoring");
                 Console.WriteLine($"   Session 1: {session1.Id} - {session1.CustomerName}");
                 Console.WriteLine($"   Session 2: {session2.Id} - {session2.CustomerName}");
                 Console.WriteLine($"   Session 3: {session3.Id} - {session3.CustomerName}");
@@ -382,13 +381,13 @@ namespace ChatApp.TestConsole
                 // Note: This would require the monitoring service to be properly configured
                 // For now, just show the structure
                 
-                Console.WriteLine($"\n🔍 Monitoring Structure Demonstration:");
+                Console.WriteLine($"\n Monitoring Structure Demonstration:");
                 Console.WriteLine($"   - Sessions are created in queue");
                 Console.WriteLine($"   - Poll tracker monitors customer polling");
                 Console.WriteLine($"   - Sessions marked inactive after 3 missed polls");
                 Console.WriteLine($"   - Clean separation between queue and monitoring");
 
-                Console.WriteLine($"\n📊 Session Status:");
+                Console.WriteLine($"\nSession Status:");
                 var queuedChats = await sessionQueueService.GetQueuedChatsAsync();
                 foreach (var chat in queuedChats.Take(5))
                 {
@@ -398,7 +397,7 @@ namespace ChatApp.TestConsole
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"   ❌ Error in monitoring test: {ex.Message}");
+                Console.WriteLine($"Error in monitoring test: {ex.Message}");
                 logger.LogError(ex, "Error in session monitoring test");
             }
         }

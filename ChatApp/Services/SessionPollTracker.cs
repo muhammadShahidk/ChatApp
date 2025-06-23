@@ -5,10 +5,6 @@ using System.Collections.Concurrent;
 
 namespace ChatApp.Services
 {
-    /// <summary>
-    /// Tracks polling activity for chat sessions
-    /// Independent of session queue management for clean separation of concerns
-    /// </summary>
     public class SessionPollTrackerService : ISessionPollTracker
     {
         private readonly ILogger<SessionPollTrackerService> _logger;
@@ -34,32 +30,26 @@ namespace ChatApp.Services
                 CreatedAt = DateTime.Now
             });
 
-            // Update poll information
             var now = DateTime.Now;
             tracker.LastPollTime = now;
             tracker.TotalPollCount++;
-            tracker.ConsecutiveMissedPolls = 0; // Reset missed polls counter
+            tracker.ConsecutiveMissedPolls = 0;
 
-            // Set first poll time if this is the first poll
             if (!tracker.FirstPollTime.HasValue)
             {
                 tracker.FirstPollTime = now;
             }
 
-            // Add to poll history (keep limited history)
             tracker.PollHistory.Add(now);
             if (tracker.PollHistory.Count > _config.MaxPollHistorySize)
             {
-                tracker.PollHistory.RemoveAt(0); // Remove oldest
+                tracker.PollHistory.RemoveAt(0); 
             }
 
-            _logger.LogDebug("Poll recorded for chat {ChatId} from customer {CustomerId} at {PollTime}", 
-                chatId, customerId, now);
 
-            // Fire event
             PollReceived?.Invoke(this, new SessionActivityEventArgs
             {
-                Session = null!, // We don't have session reference here - will be populated by caller if needed
+                Session = null!, 
                 PollTracker = tracker,
                 EventType = "poll_received"
             });
@@ -87,14 +77,12 @@ namespace ChatApp.Services
             {
                 var timeSinceLastPoll = now - tracker.LastPollTime;
                 
-                // Check if we should increment missed polls
                 if (timeSinceLastPoll > _config.PollInterval)
                 {
                     var missedPolls = (int)(timeSinceLastPoll.TotalSeconds / _config.PollInterval.TotalSeconds);
                     tracker.ConsecutiveMissedPolls = Math.Max(tracker.ConsecutiveMissedPolls, missedPolls);
                 }
 
-                // Check if session should be marked inactive
                 if (tracker.ConsecutiveMissedPolls >= _config.MaxMissedPolls)
                 {
                     sessionsToMarkInactive.Add(tracker.ChatId);
@@ -102,10 +90,9 @@ namespace ChatApp.Services
                     _logger.LogInformation("Session {ChatId} should be marked inactive. Missed {MissedPolls} consecutive polls",
                         tracker.ChatId, tracker.ConsecutiveMissedPolls);
 
-                    // Fire event
                     SessionShouldBeMarkedInactive?.Invoke(this, new SessionActivityEventArgs
                     {
-                        Session = null!, // Will be populated by caller
+                        Session = null!,
                         PollTracker = tracker,
                         EventType = "marked_inactive"
                     });
@@ -167,23 +154,5 @@ namespace ChatApp.Services
             _logger.LogInformation("Cleaned up {Count} old poll trackers", trackersToRemove.Count);
         }
 
-        /// <summary>
-        /// Get monitoring summary for dashboard
-        /// </summary>
-        public async Task<SessionMonitoringResult> GetMonitoringSummaryAsync()
-        {
-            var allTrackers = await GetAllPollTrackersAsync();
-            var inactiveSessions = await GetSessionsToMarkInactiveAsync();
-            var activityStats = await GetActivityStatsAsync();
-
-            return new SessionMonitoringResult
-            {
-                TotalSessions = allTrackers.Count,
-                ActiveSessions = allTrackers.Count - inactiveSessions.Count,
-                InactiveSessions = inactiveSessions.Count,
-                ActivityStats = activityStats,
-                MonitoringTime = DateTime.Now
-            };
-        }
     }
 }

@@ -9,17 +9,12 @@ namespace ChatApp.Controllers
     public class TeamsController : ControllerBase
     {
         private readonly ITeamService _teamService;
-        private readonly ILogger<TeamsController> _logger;
 
-        public TeamsController(ITeamService teamService, ILogger<TeamsController> logger)
+        public TeamsController(ITeamService teamService)
         {
             _teamService = teamService;
-            _logger = logger;
         }
 
-        /// <summary>
-        /// Get all teams and their agents
-        /// </summary>
         [HttpGet]
         public ActionResult<List<Team>> GetAllTeams()
         {
@@ -30,14 +25,10 @@ namespace ChatApp.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting all teams");
                 return StatusCode(500, "Internal server error");
             }
         }
 
-        /// <summary>
-        /// Get active teams (currently working)
-        /// </summary>
         [HttpGet("active")]
         public ActionResult<List<Team>> GetActiveTeams()
         {
@@ -48,14 +39,10 @@ namespace ChatApp.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting active teams");
                 return StatusCode(500, "Internal server error");
             }
         }
 
-        /// <summary>
-        /// Get specific team by ID
-        /// </summary>
         [HttpGet("{teamId}")]
         public ActionResult<Team> GetTeam(string teamId)
         {
@@ -70,14 +57,10 @@ namespace ChatApp.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting team {TeamId}", teamId);
                 return StatusCode(500, "Internal server error");
             }
         }
 
-        /// <summary>
-        /// Get overflow team status
-        /// </summary>
         [HttpGet("overflow")]
         public ActionResult<Team> GetOverflowTeam()
         {
@@ -88,14 +71,10 @@ namespace ChatApp.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting overflow team");
                 return StatusCode(500, "Internal server error");
             }
         }
 
-        /// <summary>
-        /// Update agent shift statuses
-        /// </summary>
         [HttpPost("update-shifts")]
         public ActionResult UpdateShifts()
         {
@@ -106,14 +85,10 @@ namespace ChatApp.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating agent shifts");
                 return StatusCode(500, "Internal server error");
             }
         }
 
-        /// <summary>
-        /// Check if it's currently office hours
-        /// </summary>
         [HttpGet("office-hours")]
         public ActionResult<bool> IsOfficeHours()
         {
@@ -124,14 +99,10 @@ namespace ChatApp.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error checking office hours");
                 return StatusCode(500, "Internal server error");
             }
         }
 
-        /// <summary>
-        /// Reinitialize all teams (for testing/demo purposes)
-        /// </summary>
         [HttpPost("reinitialize")]
         public ActionResult ReinitializeTeams()
         {
@@ -142,7 +113,6 @@ namespace ChatApp.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error reinitializing teams");
                 return StatusCode(500, "Internal server error");
             }
         }

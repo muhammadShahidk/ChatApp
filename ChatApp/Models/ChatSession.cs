@@ -20,10 +20,8 @@ namespace ChatApp.Models
         public string TeamId { get; set; } = string.Empty;
         public List<ChatMessage> Messages { get; set; } = new();
 
-        // Simple activity flag - managed by monitoring service
         public bool IsActive { get; set; } = true;
         
-        // Queue position tracking
         public int? QueuePosition { get; set; }
         public DateTime? EstimatedAssignmentTime { get; set; }
     }
